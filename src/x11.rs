@@ -1,7 +1,7 @@
 use std::ffi::{c_void, CString};
 use std::os::raw::{c_int, c_ulong};
 
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasDisplayHandle, HasRawDisplayHandle, HasRawWindowHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
 
 use x11::glx;
 use x11::xlib;
@@ -44,22 +44,36 @@ pub struct GlContext {
 
 impl GlContext {
     pub unsafe fn create(
-        parent: &impl HasRawWindowHandle,
+        parent: &(impl HasWindowHandle + HasDisplayHandle),
         config: GlConfig,
     ) -> Result<GlContext, GlError> {
-        let handle = if let RawWindowHandle::Xlib(handle) = parent.raw_window_handle() {
-            handle
-        } else {
-            return Err(GlError::InvalidWindowHandle);
+
+        let raw_handle = match parent.display_handle() {
+            Ok(handle) => handle.as_raw(),
+            Err(_) => return Err(GlError::InvalidWindowHandle),
         };
 
-        if handle.display.is_null() {
-            return Err(GlError::InvalidWindowHandle);
-        }
+        let handle = match raw_handle {
+            RawDisplayHandle::Xlib(handle) => handle,
+            _ => return Err(GlError::CreationFailed),
+        };
+
+        let raw_window = match parent.window_handle() {
+            Ok(window) => window.as_raw(),
+            Err(_) => return Err(GlError::InvalidWindowHandle),
+        };
+
+        let window_id = match raw_window {
+            RawWindowHandle::Xlib(handle) => handle.window,
+            _ => return Err(GlError::InvalidWindowHandle),
+        };
 
         let prev_callback = xlib::XSetErrorHandler(Some(err_handler));
 
-        let display = handle.display as *mut xlib::_XDisplay;
+        let display = match handle.display {
+            Some(non_null) => non_null.as_ptr() as *mut xlib::_XDisplay,
+            None => return Err(GlError::InvalidWindowHandle),
+        };
 
         let screen = xlib::XDefaultScreen(display);
 
@@ -134,14 +148,14 @@ impl GlContext {
             return Err(GlError::CreationFailed);
         }
 
-        glx::glXMakeCurrent(display, handle.window, context);
-        glXSwapIntervalEXT(display, handle.window, config.vsync as i32);
+        glx::glXMakeCurrent(display, window_id, context);
+        glXSwapIntervalEXT(display, window_id, config.vsync as i32);
         glx::glXMakeCurrent(display, 0, std::ptr::null_mut());
 
         xlib::XSetErrorHandler(prev_callback);
 
         Ok(GlContext {
-            window: handle.window,
+            window: window_id,
             display,
             context,
         })
