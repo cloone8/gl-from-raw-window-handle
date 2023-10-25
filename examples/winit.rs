@@ -2,9 +2,11 @@ use raw_gl_context::{GlConfig, GlContext};
 
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
+use raw_window_handle::HasWindowHandle;
+use winit::event::{Event, WindowEvent};
 
 fn main() {
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
     let context = unsafe { GlContext::create(&window, GlConfig::default()).unwrap() };
@@ -15,23 +17,25 @@ fn main() {
 
     gl::load_with(|symbol| context.get_proc_address(symbol) as *const _);
 
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Wait;
+    event_loop.run(move |event, window_target| {
 
         match event {
-            winit::event::Event::WindowEvent {
+            Event::WindowEvent {
                 event: winit::event::WindowEvent::CloseRequested,
                 ..
             } => {
-                *control_flow = ControlFlow::Exit;
+                window_target.exit();
             }
-            winit::event::Event::RedrawRequested(_) => {
+            Event::WindowEvent {
+                event: WindowEvent::RedrawRequested,
+                ..
+            } => {
                 unsafe {
                     context.make_current();
                 }
 
                 unsafe {
-                    gl::ClearColor(1.0, 0.0, 1.0, 1.0);
+                    gl::ClearColor(0.2, 0.5, 0.8, 1.0);
                     gl::Clear(gl::COLOR_BUFFER_BIT);
                 }
 
@@ -43,5 +47,5 @@ fn main() {
             }
             _ => {}
         }
-    });
+    }).expect("TODO: panic message");
 }
