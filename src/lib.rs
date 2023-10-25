@@ -1,4 +1,4 @@
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 use std::ffi::c_void;
 use std::marker::PhantomData;
@@ -73,7 +73,7 @@ pub struct GlContext {
 
 impl GlContext {
     pub unsafe fn create(
-        parent: &impl HasRawWindowHandle,
+        parent: &(impl HasWindowHandle + HasDisplayHandle),
         config: GlConfig,
     ) -> Result<GlContext, GlError> {
         platform::GlContext::create(parent, config).map(|context| GlContext {
