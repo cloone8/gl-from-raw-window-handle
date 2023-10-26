@@ -1,8 +1,8 @@
 use raw_gl_context::{GlConfig, GlContext};
 
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::event_loop::{EventLoop};
 use winit::window::WindowBuilder;
-use raw_window_handle::HasWindowHandle;
+
 use winit::event::{Event, WindowEvent};
 
 fn main() {
