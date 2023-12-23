@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::str::FromStr;
 
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle, HasWindowHandle, WindowHandle};
 
 use cocoa::appkit::{
     NSOpenGLContext, NSOpenGLContextParameter, NSOpenGLPFAAccelerated, NSOpenGLPFAAlphaSize,
@@ -27,20 +27,23 @@ pub struct GlContext {
 
 impl GlContext {
     pub unsafe fn create(
-        parent: &impl HasRawWindowHandle,
+        parent: &impl HasWindowHandle,
         config: GlConfig,
     ) -> Result<GlContext, GlError> {
-        let handle = if let RawWindowHandle::MacOS(handle) = parent.raw_window_handle() {
+        let window_handle = if let Ok(window_handle) = parent.window_handle() {
+            window_handle
+        } else {
+            return Err(GlError::InvalidWindowHandle);
+        };
+
+        //TODO: Handle UiKit handle for catalyst apps
+        let handle = if let RawWindowHandle::AppKit(handle) = window_handle.as_raw() {
             handle
         } else {
             return Err(GlError::InvalidWindowHandle);
         };
 
-        if handle.ns_view.is_null() {
-            return Err(GlError::InvalidWindowHandle);
-        }
-
-        let parent_view = handle.ns_view as id;
+        let parent_view = handle.ns_view.as_ptr() as id;
 
         let version = if config.version < (3, 2) && config.profile == Profile::Compatibility {
             NSOpenGLProfileVersionLegacy
