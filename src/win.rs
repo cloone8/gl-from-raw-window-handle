@@ -1,7 +1,7 @@
 use std::ffi::{c_void, CString, OsStr};
 use std::os::windows::ffi::OsStrExt;
 
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use winapi::shared::minwindef::{HINSTANCE, HMODULE};
 use winapi::shared::ntdef::WCHAR;
@@ -12,6 +12,7 @@ use winapi::um::wingdi::{
     DescribePixelFormat, SetPixelFormat, SwapBuffers, PFD_DOUBLEBUFFER, PFD_DRAW_TO_WINDOW,
     PFD_MAIN_PLANE, PFD_SUPPORT_OPENGL, PFD_TYPE_RGBA, PIXELFORMATDESCRIPTOR,
 };
+
 use winapi::um::winnt::IMAGE_DOS_HEADER;
 use winapi::um::winuser::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, GetDC, RegisterClassW, ReleaseDC,
@@ -77,23 +78,22 @@ extern "C" {
 
 impl GlContext {
     pub unsafe fn create(
-        parent: &impl HasRawWindowHandle,
+        parent: &impl HasWindowHandle,
         config: GlConfig,
     ) -> Result<GlContext, GlError> {
-        let handle = if let RawWindowHandle::Windows(handle) = parent.raw_window_handle() {
-            handle
-        } else {
-            return Err(GlError::InvalidWindowHandle);
-        };
 
-        if handle.hwnd.is_null() {
-            return Err(GlError::InvalidWindowHandle);
-        }
+        let handle = match parent.window_handle() {
+            Ok(handle) => match handle.as_raw() {
+                RawWindowHandle::Win32(handle) => handle,
+                _ => return Err(GlError::InvalidWindowHandle),
+            }
+            Err(_) => return Err(GlError::InvalidWindowHandle),
+        };
 
         // Create temporary window and context to load function pointers
 
         let class_name_str =
-            format!("raw-gl-context-window-{}", uuid::Uuid::new_v4().to_simple());
+            format!("raw-gl-context-window-{}", uuid::Uuid::new_v4().simple());
         let mut class_name: Vec<WCHAR> = OsStr::new(&class_name_str).encode_wide().collect();
         class_name.push(0);
 
@@ -198,7 +198,7 @@ impl GlContext {
 
         // Create actual context
 
-        let hwnd = handle.hwnd as HWND;
+        let hwnd: HWND = isize::from(handle.hwnd) as HWND;
 
         let hdc = GetDC(hwnd);
 
@@ -259,7 +259,7 @@ impl GlContext {
             std::ptr::null_mut(),
             ctx_attribs.as_ptr(),
         );
-        if hglrc == std::ptr::null_mut() {
+        if hglrc.is_null() {
             return Err(GlError::CreationFailed);
         }
 
