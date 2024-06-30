@@ -1,4 +1,6 @@
-use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+use raw_window_handle::{
+    DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle,
+};
 
 use std::ffi::c_void;
 use std::marker::PhantomData;
@@ -66,6 +68,12 @@ pub enum GlError {
     CreationFailed,
 }
 
+impl From<HandleError> for GlError {
+    fn from(_value: HandleError) -> Self {
+        GlError::InvalidWindowHandle
+    }
+}
+
 pub struct GlContext {
     context: platform::GlContext,
     phantom: PhantomData<*mut ()>,
@@ -76,7 +84,15 @@ impl GlContext {
         parent: &(impl HasWindowHandle + HasDisplayHandle),
         config: GlConfig,
     ) -> Result<GlContext, GlError> {
-        platform::GlContext::create(parent, config).map(|context| GlContext {
+        Self::create_from_handles(parent.window_handle()?, parent.display_handle()?, config)
+    }
+
+    pub unsafe fn create_from_handles(
+        window: WindowHandle,
+        display: DisplayHandle,
+        config: GlConfig,
+    ) -> Result<GlContext, GlError> {
+        platform::GlContext::create(window, display, config).map(|context| GlContext {
             context,
             phantom: PhantomData,
         })

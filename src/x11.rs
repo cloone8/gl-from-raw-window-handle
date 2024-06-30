@@ -1,7 +1,7 @@
 use std::ffi::{c_void, CString};
 use std::os::raw::{c_int, c_ulong};
 
-use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
+use raw_window_handle::{DisplayHandle, RawDisplayHandle, RawWindowHandle, WindowHandle};
 
 use x11::glx;
 use x11::xlib;
@@ -44,24 +44,18 @@ pub struct GlContext {
 
 impl GlContext {
     pub unsafe fn create(
-        parent: &(impl HasWindowHandle + HasDisplayHandle),
+        window: WindowHandle,
+        display: DisplayHandle,
         config: GlConfig,
     ) -> Result<GlContext, GlError> {
-
-        let raw_handle = match parent.display_handle() {
-            Ok(handle) => handle.as_raw(),
-            Err(_) => return Err(GlError::InvalidWindowHandle),
-        };
+        let raw_handle = display;
 
         let handle = match raw_handle {
             RawDisplayHandle::Xlib(handle) => handle,
             _ => return Err(GlError::CreationFailed),
         };
 
-        let raw_window = match parent.window_handle() {
-            Ok(window) => window.as_raw(),
-            Err(_) => return Err(GlError::InvalidWindowHandle),
-        };
+        let raw_window = window;
 
         let window_id = match raw_window {
             RawWindowHandle::Xlib(handle) => handle.window,
@@ -97,7 +91,8 @@ impl GlContext {
         ];
 
         let mut n_configs = 0;
-        let fb_config = glx::glXChooseFBConfig(display, screen, fb_attribs.as_ptr(), &mut n_configs);
+        let fb_config =
+            glx::glXChooseFBConfig(display, screen, fb_attribs.as_ptr(), &mut n_configs);
 
         if n_configs <= 0 {
             return Err(GlError::CreationFailed);

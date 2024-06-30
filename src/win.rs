@@ -1,7 +1,7 @@
 use std::ffi::{c_void, CString, OsStr};
 use std::os::windows::ffi::OsStrExt;
 
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use raw_window_handle::{DisplayHandle, RawWindowHandle, WindowHandle};
 
 use winapi::shared::minwindef::{HINSTANCE, HMODULE};
 use winapi::shared::ntdef::WCHAR;
@@ -78,22 +78,18 @@ extern "C" {
 
 impl GlContext {
     pub unsafe fn create(
-        parent: &impl HasWindowHandle,
+        window: WindowHandle,
+        _display: DisplayHandle,
         config: GlConfig,
     ) -> Result<GlContext, GlError> {
-
-        let handle = match parent.window_handle() {
-            Ok(handle) => match handle.as_raw() {
-                RawWindowHandle::Win32(handle) => handle,
-                _ => return Err(GlError::InvalidWindowHandle),
-            }
-            Err(_) => return Err(GlError::InvalidWindowHandle),
+        let handle = match window.as_raw() {
+            RawWindowHandle::Win32(handle) => handle,
+            _ => return Err(GlError::InvalidWindowHandle),
         };
 
         // Create temporary window and context to load function pointers
 
-        let class_name_str =
-            format!("raw-gl-context-window-{}", uuid::Uuid::new_v4().simple());
+        let class_name_str = format!("raw-gl-context-window-{}", uuid::Uuid::new_v4().simple());
         let mut class_name: Vec<WCHAR> = OsStr::new(&class_name_str).encode_wide().collect();
         class_name.push(0);
 
@@ -254,11 +250,8 @@ impl GlContext {
             0
         ];
 
-        let hglrc = wglCreateContextAttribsARB.unwrap()(
-            hdc,
-            std::ptr::null_mut(),
-            ctx_attribs.as_ptr(),
-        );
+        let hglrc =
+            wglCreateContextAttribsARB.unwrap()(hdc, std::ptr::null_mut(), ctx_attribs.as_ptr());
         if hglrc.is_null() {
             return Err(GlError::CreationFailed);
         }
