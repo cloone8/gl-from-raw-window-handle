@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::str::FromStr;
 
-use raw_window_handle::{RawWindowHandle, WindowHandle};
+use raw_window_handle::{DisplayHandle, RawWindowHandle, WindowHandle};
 
 use cocoa::appkit::{
     NSOpenGLContext, NSOpenGLContextParameter, NSOpenGLPFAAccelerated, NSOpenGLPFAAlphaSize,
