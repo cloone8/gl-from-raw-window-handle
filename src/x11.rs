@@ -50,14 +50,14 @@ impl GlContext {
     ) -> Result<GlContext, GlError> {
         let raw_handle = display;
 
-        let handle = match raw_handle {
+        let handle = match raw_handle.as_raw() {
             RawDisplayHandle::Xlib(handle) => handle,
             _ => return Err(GlError::CreationFailed),
         };
 
         let raw_window = window;
 
-        let window_id = match raw_window {
+        let window_id = match raw_window.as_raw() {
             RawWindowHandle::Xlib(handle) => handle.window,
             _ => return Err(GlError::InvalidWindowHandle),
         };
